@@ -5,7 +5,7 @@ var unirest = require('unirest');
 
 module.exports = function(System) {
   var obj = {};
-  var maxLimit = 20;
+  var maxLimit = 1000000;
 
   obj.updateDiigo = function(cb) {
     var start = 0;
