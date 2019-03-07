@@ -7,6 +7,12 @@
 # TO-DO: Check last-download-date of bibtex file later than last-modified date on CUL. ? possible
 # 
 # With thanks to https://pypi.python.org/pypi/citeulike_api/0.1.3dev for the login part 
+#
+# 2019-03-05: modified to keep paths short due to Windows filenaming limits
+# 2019-03-06: modified to name .json file with username
+# 2019-03-06: modified to place .bib file next to .json in working dir, instead of with the attachments
+# 2019-03-06: modified to handle multiple (up to 7) attachments per entry
+#
 import mechanize
 import time
 import sys
@@ -25,10 +31,11 @@ for opt in opts:
     elif opt[0] == '-p':
         cPass = opt[1]
 
-dataDir = './scripts/data/'
-localDir = dataDir + 'files/'
+dataDir = './'
+localDir = dataDir + 'f/'
 culikeJson = 'http://www.citeulike.org/json/user/'+cUser
-localJsonPath = dataDir + 'citeulike.json'
+localJsonPath = dataDir + cUser + '.json'
+localBibPath = dataDir + cUser + '.bib';
 
 class CulError(Exception):
     pass
@@ -95,7 +102,7 @@ class CiteULikeReader(object):
         #return ''.join(response.readlines())
         
     def getBibText(self):
-        self.browser.retrieve('http://www.citeulike.org/bibtex/user/'+self.cUser+'?do_username_prefix=0&key_type=3&incl_amazon=0&clean_urls=1&smart_wrap=0&export_attachment_names=t&fieldmap=posted-at:date-added', localDir+self.cUser+'.bib')
+        self.browser.retrieve('http://www.citeulike.org/bibtex/user/'+self.cUser+'?do_username_prefix=0&key_type=3&incl_amazon=0&clean_urls=1&smart_wrap=0&export_attachment_names=t&fieldmap=posted-at:date-added', localBibPath)
 
     def getJson(self):
         self.browser.retrieve(culikeJson, localJsonPath)
@@ -103,24 +110,27 @@ class CiteULikeReader(object):
     def downloadPDFS(self):
         #open a bibtex file
         parser = bibtex.Parser()
-        bibdata = parser.parse_file(localDir+self.cUser+'.bib')
+        bibdata = parser.parse_file(localBibPath)
 
         #loop through the individual references
         for bib_id in bibdata.entries:
             b = bibdata.entries[bib_id].fields
-            try:
-                filedl = b["citeulike-attachment-1"].split(';')[1].strip()
-                file_name = filedl.split('/')[7]
-                filedl = 'http://www.citeulike.org'+filedl
+            # uploads are limited to 2 files and 5 images, so loop up to 7 attachments per entry (2019-03-06)
+            for k in range(1, 7):
                 try:
-                   with open(localDir+file_name): pass
-                except IOError:
-                   # Doesn't exist. Download it
-                    (filename, headers) = self.browser.retrieve(filedl,localDir+file_name)
-                    self.wait_for_api_limit()
-            # field may not exist for a reference
-            except(KeyError):
-                continue
+                    fieldname = 'citeulike-attachment-' + str(k)
+                    filedl = b[fieldname].split(';')[1].strip()
+                    file_name = filedl.split('/')[7]
+                    filedl = 'http://www.citeulike.org'+filedl
+                    try:
+                       with open(localDir+file_name): pass
+                    except IOError:
+                       # Doesn't exist. Download it
+                        (filename, headers) = self.browser.retrieve(filedl,localDir+file_name)
+                        self.wait_for_api_limit()
+                # field may not exist for a reference
+                except(KeyError):
+                    continue
  
             
     
